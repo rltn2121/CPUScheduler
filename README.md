@@ -9,6 +9,7 @@
 <h3>2.	구현</h3>
 본 모델에서 사용한 전역 변수는 총 3개이다. 각 쓰레드의 동기화를 위한 semaphore 변수(mutex)와 가장 마지막으로 처리된 프로세스의 식별자를 저장하는 lastest_pid, context switch 횟수를 저장하는 context_switch_cnt로 구성되며, lastest_pid와 context_switch_cnt는 각 쓰레드의 critical section에서 처리된다.
 프로세스와 각 큐들을 효과적으로 처리하기 위해서 Process 구조체와 Ready_queue 구조체를 선언했다. Process 구조체는 process가 어떤 큐에서 처리될 지(class_num), 프로세스의 식별자(pid), 프로세스의 우선순위(priority), 프로세스의 버스트 시간(burst_time)을 저장한다. Ready_queue 구조체는 circular queue로 구현했으며, Queue의 첫 번째 원소와 마지막 원소를 가리키는 front, rear 변수를 가진다. 또한, 저장된 프로세스의 개수(count), 저장된 프로세스의 burst time의 합(total_burst_time), 해당 큐의 scheduling 방식(sched_type), Round robin 방식을 사용할 때 필요한 time_quantum 변수, 각 프로세스를 저장하는 큐(Process p[])로 구성된다. 
+
  ** Process 구조체 **
  <pre><code>
  typedef struct {
@@ -18,7 +19,9 @@
     int burst_time;
 } Process;
  </code></pre>
+ 
 ** Ready_queue 구조체 **
+
   <pre><code>
 typedef struct {
     int sched_type;  // scheduling type(0: FCFS, 1: SJF, 2: RR, 3: PRIORITY)
