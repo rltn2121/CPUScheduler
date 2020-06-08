@@ -4,7 +4,9 @@
 <h3>1.	모델 설계</h3>
 
 본 모델은 Multilevel queue scheduling 방식을 사용했다. 큐 간 스케줄링 방식은 SJF scheduling에 착안하여 각 큐의 burst time의 합이 최소인 큐 먼저 처리한다. 각 큐의 waiting time을 최소화할 수 있을 것으로 예상된다. 큐의 개수는 총 5개(#define Q_CNT 5)이며, 각 큐는 최대 10개(#define CAPACITY 10)의 프로세스를 저장할 수 있다. Multilevel queue를 구성하는 첫 번째 큐의 scheduling 방식은 FCFS scheduling, 두 번째 큐는 SJF scheduling, 세 번째 큐는 Round Robin scheduling(time quantum = 3), 네 번째 큐는 Priority scheduling, 다섯 번째 큐는 Round Robin scheduling(time quantum = 15)를 사용했다.
+
   <img src="https://user-images.githubusercontent.com/54628612/84037717-ee588f00-a9d9-11ea-9253-65b47bb45a20.png"></img>
+  
 **그림 1. Scheduling 방식**
 <h3>2.	구현</h3>
 본 모델에서 사용한 전역 변수는 총 3개이다. 각 쓰레드의 동기화를 위한 semaphore 변수(mutex)와 가장 마지막으로 처리된 프로세스의 식별자를 저장하는 lastest_pid, context switch 횟수를 저장하는 context_switch_cnt로 구성되며, lastest_pid와 context_switch_cnt는 각 쓰레드의 critical section에서 처리된다.
@@ -19,7 +21,6 @@
 } Process; </code></pre>
  
 **Ready_queue 구조체**
-
   <pre><code>typedef struct {
     int sched_type;  // scheduling type(0: FCFS, 1: SJF, 2: RR, 3: PRIORITY)
     Process p[CAPACITY]; 
@@ -37,20 +38,108 @@ setReadyQueueType() 함수는 각 큐를 초기화하고 scheduling 방식을 �
 
 <h3>3.	실행</h3>
 main 함수에서는 multilevel queue를 생성하고 프로세스들을 입력한다. 프로세스를 모두 입력하면 입력한 프로세스를 출력하고 큐 간 scheduling을 수행하는 쓰레드를 실행한다. 쓰레드가 종료될 때까지 기다렸다가 쓰레드가 종료되면 semaphore 변수를 제거하고 프로그램을 종료한다.
- <img src="https://user-images.githubusercontent.com/54628612/84037727-f1537f80-a9d9-11ea-97c9-6f1a8e3efa88.png"></img>
+**main()**
+<pre><code>int main(int argc, char* argv[]) {
+    Ready_queue mlq[Q_CNT];
+    setReadyQueueType(mlq);
+    insertProcess(mlq);
+    printProcess(mlq);
+
+    sem_init(&mutex, 0, 1);
+    pthread_t tid;
+    // Run a thread that schedules between queues
+    pthread_create(&tid, NULL, sched_Queue, (void*)mlq);
+    pthread_join(tid, NULL);
+    sem_destroy(&mutex);
+    return 0;
+}</code></pre>
  
-**그림 3. main 함수**
 
 큐 간 scheduling을 수행하는 sched_queue() 함수는 stdlib.h의 qsort() 함수를 호출하여 각 큐를 total_burst_time 순서로 정렬한다. 이후 for문에서 각 큐를 scheduling하는 쓰레드를 실행하는데, 각 큐의 scheduling type에 맞는 함수를 호출한다. 하나의 쓰레드가 실행하면 해당 쓰레드가 종료될 때까지 기다린다. 
- <img src="https://user-images.githubusercontent.com/54628612/84037728-f1ec1600-a9d9-11ea-90c5-bd516ca8ae17.png"></img>
+
  
-**그림 4. sched_Queue() 함수**
+**sched_Queue()**
+<pre><code>void* sched_Queue(void* mlq) {
+    Ready_queue* rq = (Ready_queue*)mlq;
+    // Sort queues in ascending order by total burst time
+    qsort(rq, Q_CNT, sizeof(rq[0]), compareWithTotalBurstTime);
+
+    pthread_t tid[Q_CNT];
+    // execute threads matching the queue's scheduling type
+    for (int i = 0; i < Q_CNT; i++) {
+        if (rq[i].sched_type == FCFS)
+            pthread_create(&tid[i], NULL, sched_FCFS, (void*)&rq[i]);
+        else if (rq[i].sched_type == SJF)
+            pthread_create(&tid[i], NULL, sched_SJF, (void*)&rq[i]);
+        else if (rq[i].sched_type == RR)
+            pthread_create(&tid[i], NULL, sched_RR, (void*)&rq[i]);
+        else if (rq[i].sched_type == PRIORITY)
+            pthread_create(&tid[i], NULL, sched_PRIORITY, (void*)&rq[i]);
+        pthread_join(tid[i], NULL);
+    }
+}</code></pre>
 
 sched_FCFS() 함수는 현재 인덱스를 저장하는 current_idx, 큐의 실행시간을 저장하는 running_time 변수를 가진다. FCFS scheduling은 프로세스가 입력된 순서대로 처리하므로, 별도의 정렬을 하지 않는다. while 문을 total_burst_time만큼 반복 실행한다. 만약 current_idx의 프로세스의 burst time이 0보다 클 경우 해당 프로세스의 pid를 출력하고 burst time을 1만큼 감소시키고 running time을 1만큼 증가시킨다. 그 후에 critical section으로 진입하여 현재 처리중인 프로세스와 마지막으로 실행한 프로세스가 다를 경우, context_switch_cnt를 1만큼 증가시킨다. lastest_pid를 갱신한다. 만약 current_idx 프로세스의 burst time이 0일 경우 해당 프로세스의 처리가 완료되었음을 의미하므로 다음 프로세스를 수행하기 위해 current_idx를 1만큼 증가시키고 count를 1만큼 감소시킨다. 또한 front를 1만큼 증가시켜 다음 프로세스를 가리킨다. while문의 수행이 끝나면 마지막으로 count를 1만큼 감소시키고, front를 1만큼 증가시킨다. 모든 프로세스가 처리됐으므로 front와 rear는 같은 곳을 가리킨다.
-  <img src="https://user-images.githubusercontent.com/54628612/84037730-f1ec1600-a9d9-11ea-8784-10b5e861c791.png"></img>
-  
-**그림 5. sched_FCFS() 함수**
+**sched_FCFS()**
+<pre><code>void* sched_FCFS(void* q) {
+    printf("------ sched_FCFS() ------\n");
+    Ready_queue* rq = (Ready_queue*)q;
+    int current_idx = 0;    // current index in ready queue
+    int running_time = 0;   // running time in ready queue
+    
+    while (running_time < rq->total_burst_time) {
+        // if the current process is not finished
+        if (rq->p[current_idx].burst_time > 0) {
+            printf("%d ", rq->p[current_idx].pid);
+            rq->p[current_idx].burst_time--;
+            running_time++;
+            sem_wait(&mutex);
+            // start critical section
+            // if the last processed process is different from the currently processed process
+            if (lastest_pid != rq->p[current_idx].pid)
+                context_switch_cnt++;
+            lastest_pid = rq->p[current_idx].pid;
+            // end critical section
+            sem_post(&mutex);
+        }
+        // if the current process is finished
+        else {
+            current_idx++;
+            rq->count--;
+            rq->front = (rq->front + 1) % CAPACITY;
+            printf("\n");
+        }
+    }
+    rq->count--;
+    rq->front = (rq->front + 1) % CAPACITY;
+    printf("\ncontext switch: %d\n", context_switch_cnt);
+    pthread_exit(0);
+}</code></pre>
+ 
 
+큐 간 scheduling을 수행하는 sched_queue() 함수는 stdlib.h의 qsort() 함수를 호출하여 각 큐를 total_burst_time 순서로 정렬한다. 이후 for문에서 각 큐를 scheduling하는 쓰레드를 실행하는데, 각 큐의 scheduling type에 맞는 함수를 호출한다. 하나의 쓰레드가 실행하면 해당 쓰레드가 종료될 때까지 기다린다. 
+
+ 
+**sched_Queue()**
+<pre><code>void* sched_Queue(void* mlq) {
+    Ready_queue* rq = (Ready_queue*)mlq;
+    // Sort queues in ascending order by total burst time
+    qsort(rq, Q_CNT, sizeof(rq[0]), compareWithTotalBurstTime);
+
+    pthread_t tid[Q_CNT];
+    // execute threads matching the queue's scheduling type
+    for (int i = 0; i < Q_CNT; i++) {
+        if (rq[i].sched_type == FCFS)
+            pthread_create(&tid[i], NULL, sched_FCFS, (void*)&rq[i]);
+        else if (rq[i].sched_type == SJF)
+            pthread_create(&tid[i], NULL, sched_SJF, (void*)&rq[i]);
+        else if (rq[i].sched_type == RR)
+            pthread_create(&tid[i], NULL, sched_RR, (void*)&rq[i]);
+        else if (rq[i].sched_type == PRIORITY)
+            pthread_create(&tid[i], NULL, sched_PRIORITY, (void*)&rq[i]);
+        pthread_join(tid[i], NULL);
+    }
+}</code></pre>
 sched_SJF(), sched_Priority() 함수는 sched_FCFS() 함수의 while문 앞에 각각 burst time, priority 순으로 정렬시키는 작업을 추가로 수행해주고, 나머지 부분은 sched_FCFS()와 같다.
 sched_RR() 함수는 time quantum을 고려해야 하므로, current_time 변수를 추가했다. while문을 total_burst_time만큼 반복 실행한다. 만약 현재 프로세스를 time_quantum만큼 처리했을 경우 current_time을 0으로 초기화하고 current_idx를 1만큼 증가시킨다. 여기서 주의할 점은 프로세스를 번갈아 가면서 처리해야 하므로 circular queue에서 index를 증가시키는 것처럼 current_idx를 증가시킨 후 프로세스 개수와 나머지 연산을 한다. Burst time에 따른 프로세스 처리는 다른 scheduling 방식과 동일하며 current_time 처리를 추가적으로 한다. 만약 burst time이 0인데 current_time이 0이 아닐 경우 current_time을 0으로 변경한다.
 <h3>4.	성능 분석</h3>
