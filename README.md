@@ -7,7 +7,7 @@
 
 <img src="https://user-images.githubusercontent.com/54628612/84037717-ee588f00-a9d9-11ea-9253-65b47bb45a20.png"></img>
 
-<center>Scheduling 방식</center>
+<div style="text-align: center">Scheduling 방식</div>
 
 <h3>2.	구현</h3>
 
