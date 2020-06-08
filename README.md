@@ -5,9 +5,9 @@
 
 본 모델은 Multilevel queue scheduling 방식을 사용했다. 큐 간 스케줄링 방식은 SJF scheduling에 착안하여 각 큐의 burst time의 합이 최소인 큐 먼저 처리한다. 각 큐의 waiting time을 최소화할 수 있을 것으로 예상된다. 큐의 개수는 총 5개(#define Q_CNT 5)이며, 각 큐는 최대 10개(#define CAPACITY 10)의 프로세스를 저장할 수 있다. Multilevel queue를 구성하는 첫 번째 큐의 scheduling 방식은 FCFS scheduling, 두 번째 큐는 SJF scheduling, 세 번째 큐는 Round Robin scheduling(time quantum = 3), 네 번째 큐는 Priority scheduling, 다섯 번째 큐는 Round Robin scheduling(time quantum = 15)를 사용했다.
 
-**Scheduling 방식**
-
 <img src="https://user-images.githubusercontent.com/54628612/84037717-ee588f00-a9d9-11ea-9253-65b47bb45a20.png"></img>
+
+<center>**Scheduling 방식**</center>
 
 <h3>2.	구현</h3>
 
