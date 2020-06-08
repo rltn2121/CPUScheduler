@@ -10,7 +10,27 @@
 본 모델에서 사용한 전역 변수는 총 3개이다. 각 쓰레드의 동기화를 위한 semaphore 변수(mutex)와 가장 마지막으로 처리된 프로세스의 식별자를 저장하는 lastest_pid, context switch 횟수를 저장하는 context_switch_cnt로 구성되며, lastest_pid와 context_switch_cnt는 각 쓰레드의 critical section에서 처리된다.
 프로세스와 각 큐들을 효과적으로 처리하기 위해서 Process 구조체와 Ready_queue 구조체를 선언했다. Process 구조체는 process가 어떤 큐에서 처리될 지(class_num), 프로세스의 식별자(pid), 프로세스의 우선순위(priority), 프로세스의 버스트 시간(burst_time)을 저장한다. Ready_queue 구조체는 circular queue로 구현했으며, Queue의 첫 번째 원소와 마지막 원소를 가리키는 front, rear 변수를 가진다. 또한, 저장된 프로세스의 개수(count), 저장된 프로세스의 burst time의 합(total_burst_time), 해당 큐의 scheduling 방식(sched_type), Round robin 방식을 사용할 때 필요한 time_quantum 변수, 각 프로세스를 저장하는 큐(Process p[])로 구성된다. 
  <img src="https://user-images.githubusercontent.com/54628612/84037719-ef89bc00-a9d9-11ea-9614-b3b9d30cca03.png"></img>
-<text-align:center>**그림 2. Process 구조체, Ready_queue 구조체**
+ <pre><code>
+ typedef struct {
+    int class_num;
+    int pid;
+    int priority;
+    int burst_time;
+} Process;
+ </code></pre>
+ 
+  <pre><code>
+typedef struct {
+    int sched_type;  // scheduling type(0: FCFS, 1: SJF, 2: RR, 3: PRIORITY)
+    Process p[CAPACITY]; 
+    int front;       // index of the first process in the queue
+    int rear;        // index of the first process in the queue
+    int count; 
+    int total_burst_time;
+    int time_quantum;
+} Ready_queue;
+ </code></pre>
+**그림 2. Process 구조체, Ready_queue 구조체**
 setReadyQueueType() 함수는 각 큐를 초기화하고 scheduling 방식을 결정한다. Round Robin 방식을 사용할 경우 time_quantum을 0이 아닌 값으로 설정한다. insertProcess() 함수는 처리할 프로세스의 수와 프로세스의 정보(class, pid, priority, burst_time)를 입력한다. 만약 삽입하려는 큐가 가득 찼을 경우 오류 메시지를 출력하고 프로세스 정보를 다시 입력한다. printProcess() 함수는 입력된 프로세스의 정보를 출력한다. compareWithBurstTime(), compareWithPriority() 함수는 프로세스를 각각 burst time, priority 기준 오름차순 정렬하고, compareWithTotalBurstTime() 함수는 각 Ready queue를 total burst time 기준 오름차순 정렬한다. sched_FCFS(), sched_SJF(), sched_Priority(), sched_RR() 함수들은 각각 FCFS, SJF, Priority, Round robin scheduling을 실행한다. sched_Queue() 함수는 각 큐의 scheduling을 실행하는 쓰레드를 실행시킨다.
 <img src="https://user-images.githubusercontent.com/54628612/84037721-f0225280-a9d9-11ea-8187-2a21c0f7f5ef.JPG"></img>
 
